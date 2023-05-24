@@ -28,6 +28,7 @@ USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36
 # HTML entities
 BR = '<br/>'
 CR = '&#13;'
+I = "</?i>"
 
 # Timeout between page requests, in seconds
 REQUEST_TIMEOUT = 1.0
@@ -71,6 +72,7 @@ def band_search(name, strict=True, genre=None, countries=[], year_created_from=N
         'additional_notes': 'bandNotes',
         'page_start': 'iDisplayStart'
     })
+    # print(params)
 
     # Build the search URL
     url = 'search/ajax-advanced/searching/bands/?' + urlencode(params, True)
@@ -268,6 +270,8 @@ class Metallum(object):
 
     def _fetch_page_content(self, url) -> str:
         res = self._session.get(make_absolute(url))
+        # print("https://www.metal-archives.com/lists/A")
+        # print(self._session.get("https://www.metal-archives.com/lists/A").text)
         return res.text
 
 
@@ -278,10 +282,12 @@ class MetallumEntity(Metallum):
         """Data on entity pages are stored in <dt> / <dd> pairs
         """
         labels = list(self._page('dt').contents())
+        # print(labels)
         try:
             index = labels.index(label)
         except ValueError:
             return None
+        # print(self._page('dd').eq(index))
         return self._page('dd').eq(index)
 
     def _dd_text_for_label(self, label: str) -> str:
@@ -361,6 +367,9 @@ class BandResult(SearchResult):
         super().__init__(details)
         self._details = details
         self._resultType = Band
+        # print(self._details)
+        # print(self._resultType)
+
 
     @property
     def id(self) -> str:
@@ -517,6 +526,7 @@ class Band(MetallumEntity):
 
     def __init__(self, url):
         super().__init__(url)
+        # print(url)
 
     def __repr__(self):
         return '<Band: {0}>'.format(self.name)
@@ -597,6 +607,14 @@ class Band(MetallumEntity):
         '1981'
         """
         return self._dd_text_for_label('Formed in:')
+    
+    @property
+    def years_active(self) -> str:
+        """
+        >>> band.years_active
+        '1981-present'
+        """
+        return self._dd_text_for_label('Years active:').split(', ')
 
     @property
     def genres(self) -> List[str]:
@@ -778,6 +796,7 @@ class AlbumWrapper(Metallum):
             self._album = Album(url)
         elif elem:
             self._album = LazyAlbum(elem)
+        # print(self._album)
 
     def __repr__(self):
         return '<Album: {0} ({1})>'.format(self.title, self.type)
@@ -793,6 +812,8 @@ class AlbumWrapper(Metallum):
         >>> len(album.tracks)
         8
         """
+        # print(self._album)
+        # print(self._album.url)
         return TrackCollection(self._album.url, self)
 
     @property
@@ -1001,6 +1022,7 @@ class LazyAlbum:
 
     def __init__(self, elem):
         self._elem = elem
+        # print(self._elem)
 
     @property
     def id(self) -> str:
@@ -1180,19 +1202,25 @@ class Track(object):
         >>> str(track.lyrics).split('\\n')[0]
         'Lashing out the action, returning the reaction'
         """
-        return Lyrics(self.id)
+        return Lyrics(self.id).__str__()
 
 
 class Lyrics(Metallum):
 
     def __init__(self, id):
         super().__init__('release/ajax-view-lyrics/id/{0}'.format(id))
+        # print(Metallum)
+        # print('release/ajax-view-lyrics/id/{0}'.format(id))
+        # print(self._page)
 
     def __str__(self):
         lyrics = self._page('p').html()
         if not lyrics:
             return ''
-        return lyrics.replace(BR * 2, '\n').replace(BR, '').replace(CR, '').strip()
+        lyrics_cleaned = lyrics.replace(BR * 2, '\n').replace(BR, '').replace(CR, '').strip()
+        lyrics_cleaned = re.sub(I, '', lyrics_cleaned)
+        return lyrics_cleaned
+    
 
 
 if __name__ == '__main__':
